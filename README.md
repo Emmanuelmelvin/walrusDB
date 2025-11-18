@@ -113,6 +113,4 @@ npx walrusdb use dev
 
 ## License
 
-MIT (or choose your preferred license)
-
-If you need focused examples for a particular framework (React, Node serverless, mobile), mention your target and a concise example will be provided.
+MIT
