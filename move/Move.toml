@@ -1,0 +1,7 @@
+[package]
+name = "Official package for WalrusDB"
+edition = "2024.beta" 
+
+[addresses]
+db = "0x0"
+

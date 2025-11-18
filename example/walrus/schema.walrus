@@ -1,0 +1,8 @@
+generator walrus {
+  url "https://storage.walrus.node.io"
+}
+
+model User {
+  id String
+  email String?
+}

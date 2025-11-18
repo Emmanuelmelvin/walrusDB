@@ -1,0 +1,15 @@
+{
+  "name": "walrus-icon-pack",
+  "displayName": "Walrusdb Icon Pack",
+  "version": "1.0.0",
+  "publisher": "local",
+  "contributes": {
+    "iconThemes": [
+      {
+        "id": "walrus-icon-theme",
+        "label": "Walrusdb Icon Theme",
+        "path": "./walrus-icon-theme.json"
+      }
+    ]
+  }
+}

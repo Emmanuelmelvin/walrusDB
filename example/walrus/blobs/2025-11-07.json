@@ -1,0 +1,19 @@
+{
+    "id": {
+        "id": "0xc309dcabb0de2309f4cc05b6c55680d98bb2b1799e0c474b4838f061d4080ee1"
+    },
+    "registered_epoch": 218,
+    "blob_id": "55503166939494025467674291061696998151847645551882103014460854650700860257452",
+    "size": "45",
+    "encoding_type": 1,
+    "certified_epoch": 218,
+    "storage": {
+        "id": {
+            "id": "0xde4a1b8f0acfec25c9f823437014756b40e6310664d707a369faeeb0029f1210"
+        },
+        "start_epoch": 218,
+        "end_epoch": 221,
+        "storage_size": "66034000"
+    },
+    "deletable": true
+}

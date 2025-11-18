@@ -1,0 +1,15 @@
+{
+    "private": true,
+    "workspaces": [
+        "walrusdb",
+        "example"
+    ],
+    "dependencies": {
+        "@iarna/toml": "^2.2.5",
+        "@mysten/seal": "^0.9.3",
+        "@mysten/sui": "^1.44.0",
+        "@mysten/walrus": "^0.8.3",
+        "dotenv": "^17.2.3",
+        "toml": "^3.0.0"
+    }
+}

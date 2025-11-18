@@ -1,0 +1,11 @@
+{
+  "name": "walrus-icon-theme",
+  "iconDefinitions": {
+    "icon-walrusdb": {
+      "iconPath": "../icons/walrus.svg"
+    }
+  },
+  "fileExtensions": {
+    "walrus": "icon-walrusdb"
+  }
+}
