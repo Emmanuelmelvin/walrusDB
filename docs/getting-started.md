@@ -34,6 +34,7 @@ const walrusClient = new WalrusClient(keyPair).$extend(SealClient);
 ```ts
 // Fetch service key by name
 const keyId = await walrusClient.getServiceKeyFromName({ name: "SuscriptionKey" });
+const keyId = await walrusClient.createServiceKey({name: "SuscriptionKey", fee: 20, ttl: 100000})
 if (!keyId) return;
 ```
 
@@ -41,6 +42,7 @@ if (!keyId) return;
 
 ```ts
 const subscription = await walrusClient.getSubcriptionForService(keyId.id.id);
+const subscription = await walrusClient.createSubscription({service: keyId.id.id, fee: keyId.fee})
 if (!subscription) return;
 
 console.log("Subscription object ID:", subscription);

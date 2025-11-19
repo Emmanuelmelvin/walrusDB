@@ -85,4 +85,22 @@ program
       });
     })
   );
+
+  // walrusdb help
+program
+  .command("help")
+  .description("List all available commands")
+  .action(() => {
+    info("\nWalrusDB CLI - Available Commands:\n");
+    program.commands.forEach(cmd => {
+      info(`  ${cmd.name()}${cmd.alias() ? `, ${cmd.alias()}` : ""}`);
+      info(`    ${cmd.description()}`);
+      // Optionally, list required options for each command
+      (cmd as any).options.forEach((opt: { flags: any; description: any; }) => {
+        info(`      ${opt.flags}  ${opt.description}`);
+      });
+    });
+    info("");
+  });
+
 program.parse(process.argv);
