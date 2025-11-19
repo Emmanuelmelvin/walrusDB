@@ -56,10 +56,9 @@ console.log(result)
 //         epochs: 2
 //     }}
 // )
-//const decryptedData = await walrusClient.decrypt(buffer)
 
-//const data = await walrusClient.fetchBlobFromWalrusAndDecrypt<User>({blobId: "YEmp30hb8rskCceR8hJIfpUHvs9JmEaKc46Cqs558kQ"});
-//encrypt("testnet", "Snapshot-1", keyPair.getKey(), {name: "Emmanuel"})
+
+//const data = await walrusClient.decryptFromWalrusBlobbId<User>({blobId: "YEmp30hb8rskCceR8hJIfpUHvs9JmEaKc46Cqs558kQ"});
 // const {blob, data} = await walrusClient.user.create({
 //     id: "12345",
 //     email: "emmachid@outlook.com",

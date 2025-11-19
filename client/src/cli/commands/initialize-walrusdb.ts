@@ -3,7 +3,7 @@ import { encrypt } from "../utils/crypt";
 import { success, info } from "../utils/log";
 import { writeFile, ensureDir } from "../utils/file";
 import { KEY_PATH } from "../../core/config";
-import { WalrusError } from "../utils/error";
+import { WalrusDBNotFoundError } from "../utils/error";
 import path from "path";
 
 /**
@@ -26,11 +26,11 @@ export interface EncryptedData {
  * @param {string} alias - The alias (or name) for the key file (used in file naming).
  * @returns {Promise<void>} Resolves when the file has been successfully written.
  *
- * @throws {WalrusError} If no alias is provided or a file write fails.
+ * @throws {WalrusDBNotFoundError} If no alias is provided or a file write fails.
  */
 export async function initializeWalrusDBClientKeyAndSecret(alias: string): Promise<void> {
   if (!alias) {
-    throw new WalrusError("Alias not found! Please provide a valid name for the client key.");
+    throw new WalrusDBNotFoundError("Alias not found! Please provide a valid name for the client key.");
   }
 
   // Generate keypair

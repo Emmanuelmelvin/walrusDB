@@ -1,10 +1,26 @@
 import { SessionKey } from "@mysten/seal";
-import { decrypt, encrypt } from "../runtime/seal-client";
-import { fetchBlob, storeBlob, } from "../runtime/walrus-client";
+import { 
+  decrypt, 
+  encrypt 
+} from "../runtime/seal-client";
+import { 
+  fetchBlob, 
+  storeBlob, 
+} from "../runtime/walrus-client";
 import { KeyPair } from "./keyPair";
-import { ReadOptions, WalrusClientFields, AllowlistCap, SealPatterns, SubscriptionOptions, CreateServiceOptions, GetServiceKeyOption, Service, CreateSubscriptionOptions } from "../@types/param";
+import { 
+  ReadOptions, 
+  WalrusClientFields, 
+  AllowlistCap, 
+  SealPatterns, 
+  SubscriptionOptions, 
+  CreateServiceOptions, 
+  GetServiceKeyOption, 
+  Service,
+  CreateSubscriptionOptions 
+} from "../@types/param";
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
-import { WalrusError } from "../cli/utils/error";
+import { WalrusDBSealError } from "../cli/utils/error";
 import { KeyPairsBuffer } from "../@types/return";
 import { helperCreateAllowList } from "../runtime/allowlist/create";
 import { getAllowListByName } from "../runtime/allowlist/cap";
@@ -16,7 +32,7 @@ import { create as createServiceKey, createSubscriptionForService } from "../run
 import { getServiceObjectFromNameHelper, getSubscriptionForService } from "../runtime/subscription/get";
 
 /**
- * SealClient manages encryption, allowlists, and blob storage on Walrus.
+ * SealClient manages encryptions(allowlist, private data, suscription and time lock), and blob storage on Walrus.
  *
  */
 export class SealClient implements WalrusClientFields {
@@ -306,7 +322,7 @@ export class SealClient implements WalrusClientFields {
   async decryptFromPrivateDataObject<T>(privateDataId?: string, nonce?: Uint8Array): Promise<T> {
     const data = await getPrivateDataObjectData(this.network, this.keyPair.getKey(), nonce, privateDataId);
     if (!(data?.data)) {
-      throw new WalrusError("Unable to read bytes from PrivateData object");
+      throw new WalrusDBSealError("Unable to read bytes from PrivateData object");
     }
 
     const { decryptedBytes } = await this._decrypt("Private Data", data?.data, privateDataId, nonce);
@@ -339,9 +355,8 @@ export class SealClient implements WalrusClientFields {
   async decryptFromWalrusBlobId<T>(blobId: ReadOptions, pattern: SealPatterns, keyId?: string | SubscriptionOptions, name?: string | Uint8Array): Promise<T> {
     const blobFromWalrus = await fetchBlob({ blobId: blobId.blobId }, this.network);
     const parsed = JSON.parse(new TextDecoder().decode(blobFromWalrus));
-    const buffer = Uint8Array.from(Object.values(parsed));
-    const { decryptedBytes, sessionKey } = await this._decrypt(pattern, buffer, keyId, name);
-    this.sessionKey = sessionKey;
+    const buffer = this._objectToUint8Array(parsed)
+    const { decryptedBytes } = await this._decrypt(pattern, buffer, keyId, name);
     const decodedJson = new TextDecoder().decode(decryptedBytes);
     return JSON.parse(decodedJson) as T;
   }

@@ -1,0 +1,7 @@
+* [Home](/docs/home.md)
+* [Getting Started](/docs/getting-started.md)
+* [Common Error](/docs/error.md)
+* [Working with Schema](/docs//schema.md)
+* [Decryption](/docs//encryption.md)
+* [Encryption](/docs/encryption.md)
+* [How WalrusDB aligns with the Data Privacy and Security Track](/docs/alignment.md)

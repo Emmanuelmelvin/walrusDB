@@ -1,5 +1,5 @@
 import { WalrusActiveNetwork } from "../../@types/param";
-import { WalrusError } from "../../cli/utils/error";
+import { WalrusDBRetryableError, WalrusDBTransactionError } from "../../cli/utils/error";
 import { MODULE_NAME, PACKAGE_ID } from "../../constants/move";
 import { getFullnodeUrl, SuiClient } from "@mysten/sui/client";
 import { Transaction } from "@mysten/sui/transactions";
@@ -13,7 +13,7 @@ import { Key } from "../../core/keyPair";
  * @param signer - Ed25519Keypair used to sign the tx
  * @param name - Allowlist name
  * @returns objectId string of created allowlist
- * @throws WalrusError when transaction fails or expected object change is not found
+ * @throws WalrusDBError when transaction fails or expected object change is not found
  */
 export const createAllowList = async (suiClient: SuiClient, signer: Ed25519Keypair, name: string): Promise<string> => {
   const tx = new Transaction();
@@ -33,7 +33,7 @@ export const createAllowList = async (suiClient: SuiClient, signer: Ed25519Keypa
   });
 
   if (!result.effects?.status?.status) {
-    throw new WalrusError("An unexpected error occured while creating allowlist.");
+    throw new WalrusDBTransactionError("An unexpected error occured while creating allowlist.");
   }
 
   // Find created allowlist object change
@@ -45,7 +45,7 @@ export const createAllowList = async (suiClient: SuiClient, signer: Ed25519Keypa
   );
 
   if (!createdChange || !createdChange.objectId) {
-    throw new WalrusError("Failed to locate created allowlist object in transaction result.");
+    throw new WalrusDBRetryableError("Failed to locate created allowlist object in transaction result.");
   }
 
   return createdChange.objectId as string;

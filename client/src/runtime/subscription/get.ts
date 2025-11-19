@@ -1,6 +1,6 @@
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 import { PACKAGE_ID } from "../../constants/move";
-import { getFullnodeUrl, SuiClient, SuiParsedData } from "@mysten/sui/client";
+import { getFullnodeUrl, SuiClient } from "@mysten/sui/client";
 import { Service, ServiceCap, Subscription, WalrusActiveNetwork } from "../../@types/param";
 import { Key } from "../../core/keyPair";
 

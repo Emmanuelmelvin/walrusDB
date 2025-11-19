@@ -6,7 +6,7 @@ import { generateTypes } from "../../generator/type-generator";
 import { generateClient } from "../../generator/client-generator";
 import { SCHEMA_WALRUS_PATH, SCHEMA_JSON_PATH, CLIENT_TS_PATH } from "../../core/config";
 import { info, success, error, warn } from "../utils/log";
-import { WalrusError } from "../utils/error";
+import { WalrusDBNotFoundError, WalrusDBError } from "../utils/error";
 import type { ParsedWalrusSchema } from "../../@types/schema";
 
 /**
@@ -19,7 +19,7 @@ import type { ParsedWalrusSchema } from "../../@types/schema";
  *
  * @async
  * @function generateCommand
- * @throws {WalrusError} If schema parsing or generation fails.
+ * @throws {WalrusDBError} If schema parsing or generation fails.
  * @returns {Promise<void>} Resolves when generation completes successfully.
  */
 export async function generateCommand(): Promise<void> {
@@ -27,25 +27,25 @@ export async function generateCommand(): Promise<void> {
 
   try {
     if (!fs.existsSync(SCHEMA_WALRUS_PATH)) {
-      throw new WalrusError(`No schema file found at: ${SCHEMA_WALRUS_PATH}\nRun: walrus init`);
+      throw new WalrusDBNotFoundError(`No schema file found at: ${SCHEMA_WALRUS_PATH}\nRun: walrus init`);
     }
 
     const schemaText = await readFile(SCHEMA_WALRUS_PATH);
 
-    let parsed: ParsedWalrusSchema;
+    let parsed: ParsedWalrusSchema | any;
     try {
       parsed = parseWalrusSchema(schemaText);
     } catch (err: unknown) {
       if (err && typeof err === "object" && !("stack" in err)) {
         const message = (err as { message?: string }).message || JSON.stringify(err);
-        throw new WalrusError("Schema parsing failed:\n" + message);
+        throw new WalrusDBError("Schema parsing failed:\n" + message);
       }
 
       if (!(err instanceof Error)) {
-        throw new WalrusError("Schema parsing failed:\n" + String(err));
+        throw new WalrusDBError("Schema parsing failed:\n" + String(err));
       }
 
-      throw new WalrusError("Schema parsing failed:\n" + err.message);
+      throw new WalrusDBError("Schema parsing failed:\n" + err.message);
     }
 
     info("✅ Parsed schema.walrus successfully.");
@@ -75,8 +75,8 @@ export async function generateCommand(): Promise<void> {
     }
 
     success("✨ Generation complete!");
-  } catch (err: unknown) {
-    if (err instanceof WalrusError) {
+  } catch (err: any) {
+    if (err instanceof WalrusDBError) {
       error(err.message);
     } else {
       error("Unexpected internal error occurred.");

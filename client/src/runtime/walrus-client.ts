@@ -14,7 +14,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { BLOBS_DIR } from "../core/config";
-import { WalrusError } from "../cli/utils/error";
+import { WalrusDBError } from "../cli/utils/error";
 import { Key } from "../core/keyPair";
 import { getFullnodeUrl } from "@mysten/sui/client";
 import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
@@ -107,7 +107,7 @@ export async function storeBlob(
         client.walrus.reset();
         return upload();
       }
-      throw new WalrusError(
+      throw new WalrusDBError(
         `Unable to upload to Walrus: ${error?.cause?.toString() ?? error.message}`
       );
     });
@@ -118,7 +118,7 @@ export async function storeBlob(
 
     return { blobId, blobObject };
   } catch (error: any) {
-    throw new WalrusError(`Blob upload failed: ${error.message}`);
+    throw new WalrusDBError(`Blob upload failed: ${error.message}`);
   }
 }
 
@@ -140,7 +140,7 @@ export async function fetchBlob(
     const data = await client.walrus.readBlob(blob);
     return data;
   } catch (error: any) {
-    throw new WalrusError("Failed to fetch blob from walrus", error);
+    throw new WalrusDBError("Failed to fetch blob from walrus", error);
   }
 }
 
@@ -178,6 +178,6 @@ export async function deleteBlob(
 
     return result?.effects?.status?.status === "success";
   } catch (error: any) {
-    throw new WalrusError(`Failed to delete blob: ${error.message}`);
+    throw new WalrusDBError(`Failed to delete blob: ${error.message}`);
   }
 }

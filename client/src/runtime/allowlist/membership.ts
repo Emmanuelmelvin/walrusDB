@@ -1,5 +1,5 @@
 import { AllowlistCap, WalrusActiveNetwork } from "../../@types/param";
-import { WalrusError } from "../../cli/utils/error";
+import { WalrusDBNoAccessError, WalrusDBNotFoundError } from "../../cli/utils/error";
 import { MODULE_NAME, PACKAGE_ID } from "../../constants/move";
 import { Key } from "../../core/keyPair";
 import { getFullnodeUrl, SuiClient } from "@mysten/sui/client";
@@ -34,7 +34,7 @@ export async function accountToAllowList(
   const capObjects = (owned.data ?? []).filter((v: any) => v.data?.type === `${PACKAGE_ID}::${MODULE_NAME}::Cap`);
 
   if (capObjects.length === 0) {
-    throw new WalrusError("No allowlist found for user account!");
+    throw new WalrusDBNotFoundError("No allowlist found for user account!");
   }
 
   let cap: AllowlistCap | null = null;
@@ -52,7 +52,7 @@ export async function accountToAllowList(
     }
 
     if (!cap) {
-      throw new WalrusError(`No Cap found for provided allowlist ID: ${allowList}`);
+      throw new WalrusDBNotFoundError(`No Cap found for provided allowlist ID: ${allowList}`);
     }
   } else {
     // default to first cap
@@ -86,7 +86,7 @@ export async function accountToAllowList(
     if (abortCode === 2) {
       return "Already exists!";
     }
-    throw new WalrusError("Unable to modify allowlist membership.");
+    throw new WalrusDBNoAccessError("Unable to modify allowlist membership.");
   }
 
   return true;

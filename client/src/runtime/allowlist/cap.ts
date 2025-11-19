@@ -1,5 +1,5 @@
 import { AllowlistCap, WalrusActiveNetwork } from "../../@types/param";
-import { WalrusError } from "../../cli/utils/error";
+import { WalrusDBNotFoundError } from "../../cli/utils/error";
 import { MODULE_NAME, PACKAGE_ID } from "../../constants/move";
 import { Key } from "@/core/keyPair";
 import { getFullnodeUrl, SuiClient } from "@mysten/sui/client";
@@ -42,7 +42,7 @@ async function getAllowListByNameWrapperFunction(client: SuiClient, signer: Ed25
   const capObjects = (owned.data ?? []).filter((v: any) => v.data?.type === `${PACKAGE_ID}::${MODULE_NAME}::Cap`);
 
   if (capObjects.length === 0) {
-    throw new WalrusError("No allowlist Cap found for this account!");
+    throw new WalrusDBNotFoundError("No allowlist Cap found for this account!");
   }
 
   for (const obj of capObjects) {
@@ -92,7 +92,7 @@ export async function getAllowListObjectId(suiClient: SuiClient, signer: Ed25519
   }
   const allowlist = await getAllowListByNameWrapperFunction(suiClient, signer, name)
   if (!allowlist) {
-    throw new WalrusError("No Allowlist object found for the provided name tag.")
+    throw new WalrusDBNotFoundError("No Allowlist object found for the provided name tag.")
   }
   return allowlist.allowList.id.id
 }

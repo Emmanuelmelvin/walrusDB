@@ -4,7 +4,7 @@ import path from "path";
 import { CONFIG_PATH, KEY_PATH } from "../../core/config";
 import * as toml from "toml";
 import { stringify } from "@iarna/toml";
-import { WalrusError } from "./error";
+import { WalrusDBConfigError, WalrusDBNotFoundError } from "./error";
 import { readFile } from "./file";
 import { decrypt } from "./crypt";
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
@@ -25,7 +25,7 @@ export async function loadConfig(): Promise<WalrusConfig> {
     const raw = await fs.readFile(CONFIG_PATH, "utf8");
     return toml.parse(raw) as WalrusConfig;
   } catch (err) {
-    throw new WalrusError(`Failed to load config: ${(err as Error).message}`);
+    throw new WalrusDBConfigError(`Failed to load config: ${(err as Error).message}`);
   }
 }
 
@@ -40,7 +40,7 @@ export async function saveConfig(config: WalrusConfig): Promise<void> {
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(CONFIG_PATH, stringify(config as any), "utf8");
   } catch (err) {
-    throw new WalrusError(`Failed to save config: ${(err as Error).message}`);
+    throw new WalrusDBConfigError(`Failed to save config: ${(err as Error).message}`);
   }
 }
 
@@ -58,12 +58,12 @@ export async function getActiveAlias(): Promise<string | null> {
  * Sets the active alias in config after validating it exists.
  *
  * @param {string} alias - Alias to set as active.
- * @throws {WalrusError} If alias does not exist.
+ * @throws {WalrusDBConfigError} If alias does not exist.
  */
 export async function setActiveAlias(alias: string): Promise<void> {
   const aliasPath = path.join(KEY_PATH, `${alias}.csv`);
   if (!fsSync.existsSync(aliasPath)) {
-    throw new WalrusError(`Alias '${alias}' not found. Initialize it first.`);
+    throw new WalrusDBConfigError(`Alias '${alias}' not found. Initialize it first.`);
   }
   await saveConfig({ activeAlias: alias });
 }
@@ -73,7 +73,7 @@ export async function setActiveAlias(alias: string): Promise<void> {
  *
  * @param {string} alias - Alias to retrieve.
  * @returns {Promise<string>} Public key (Sui address) for the alias.
- * @throws {WalrusError} If alias does not exist or decryption fails.
+ * @throws {WalrusDBConfigError} If alias does not exist or decryption fails.
  */
 export async function getKeyFromAlias(alias: string): Promise<string> {
   const secret = await getSecretFromAlias(alias);
@@ -91,21 +91,21 @@ export async function getKeyFromAlias(alias: string): Promise<string> {
 export async function getSecretFromAlias(alias: string): Promise<string> {
   const filePath = path.join(KEY_PATH, `${alias}.csv`);
   if (!fsSync.existsSync(filePath)) {
-    throw new WalrusError(`Alias '${alias}' not found.`);
+    throw new WalrusDBNotFoundError(`Alias '${alias}' not found.`);
   }
 
   try {
     const keyCsv = (await readFile(filePath)).trim();
     const lines = keyCsv.split("\n");
-    if (lines.length < 2) throw new WalrusError(`Invalid key file format for alias '${alias}'.`);
+    if (lines.length < 2) throw new WalrusDBConfigError(`Invalid key file format for alias '${alias}'.`);
 
     const parts = (lines as any)[1].split(",").map((v: string) => v.trim());
-    if (parts.length !== 4) throw new WalrusError(`Key file for alias '${alias}' is corrupted.`);
+    if (parts.length !== 4) throw new WalrusDBConfigError(`Key file for alias '${alias}' is corrupted.`);
 
     const [encryptedData, iv, tag, key] = parts;
     return decrypt(encryptedData, key, iv, tag);
   } catch (err) {
-    throw new WalrusError(`Failed to retrieve secret for alias '${alias}': ${(err as Error).message}`);
+    throw new WalrusDBConfigError(`Failed to retrieve secret for alias '${alias}': ${(err as Error).message}`);
   }
 }
 
@@ -120,7 +120,7 @@ export async function getAllAliases(): Promise<string[]> {
     const files = await fs.readdir(KEY_PATH);
     return files.filter(f => f.endsWith(".csv")).map(f => path.basename(f, ".csv"));
   } catch (err) {
-    throw new WalrusError(`Failed to list aliases: ${(err as Error).message}`);
+    throw new WalrusDBConfigError(`Failed to list aliases: ${(err as Error).message}`);
   }
 }
 

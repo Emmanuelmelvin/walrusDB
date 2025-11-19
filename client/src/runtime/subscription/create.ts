@@ -4,7 +4,7 @@ import { CoinStruct, getFullnodeUrl, OwnedObjectRef, SuiClient } from "@mysten/s
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 import { Transaction } from "@mysten/sui/transactions";
 import { PACKAGE_ID } from "../../constants/move";
-import { WalrusError } from "../../cli/utils/error";
+import { WalrusDBConfigError, WalrusDBRetryableError, WalrusDBTransactionError } from "../../cli/utils/error";
 import { getServiceObjectFromName } from "./get";
 
 /**
@@ -20,7 +20,7 @@ export async function create(
     const client = new SuiClient({ url: getFullnodeUrl(network) });
     const keyPair = Ed25519Keypair.fromSecretKey(key.secret);
     const existingServiceId = await getServiceObjectFromName(client, keyPair, options.name)
-    if (existingServiceId) throw new WalrusError(`Service with name ${options.name} already exists!`)
+    if (existingServiceId) throw new WalrusDBConfigError(`Service with name ${options.name} already exists!`)
     const tx = new Transaction();
     tx.moveCall({
         target: `${PACKAGE_ID}::subscription::create_service_entry`,
@@ -42,7 +42,7 @@ export async function create(
     });
 
     if (result.effects?.status.status === "failure") {
-        throw new WalrusError("Unable to create service. Try again later!");
+        throw new WalrusDBRetryableError("Unable to create service. Try again later!");
     }
     return (result?.effects?.created as Array<OwnedObjectRef>)[1]?.reference.objectId
 }
@@ -70,7 +70,7 @@ export async function createSubscriptionForService(
 
     const eligibleCoins = coins.data.filter(c => BigInt(c.balance) >= fee);
     if (eligibleCoins.length === 0) {
-        throw new WalrusError("Insufficient SUI balance to pay subscription fee.");
+        throw new WalrusDBTransactionError("Insufficient SUI balance to pay subscription fee.");
     }
 
     const tx = new Transaction();
@@ -104,7 +104,7 @@ export async function createSubscriptionForService(
             serviceObj.data.content?.dataType !== "moveObject" ||
             serviceObj.data.content.type !== `${PACKAGE_ID}::subscription::Service`
         ) {
-            throw new WalrusError("Invalid service object.");
+            throw new WalrusDBConfigError("Invalid service object.");
         }
 
         const subscription = tx.moveCall({
@@ -134,7 +134,7 @@ export async function createSubscriptionForService(
         });
 
         if (result.effects?.status.status === "failure") {
-            throw new WalrusError("Unable to create subscription. Try again later!");
+            throw new WalrusDBRetryableError("Unable to create subscription. Try again later!");
         }
         return (result.effects?.created?.[0] as OwnedObjectRef).reference.objectId;
 

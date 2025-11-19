@@ -1,116 +1,85 @@
 # WalrusDB SDK
 
-WalrusDB is a developer-friendly SDK that combines verifiable storage (Walrus) with powerful encryption (Seal) to make secure data storage and sharing easy. It abstracts cryptography and blockchain interactions into simple, high-level functions so every application — web, mobile, backend, or cloud — can protect user data with minimal effort.
+WalrusDB is a high-level SDK that makes it easy for developers to use **Seal encryption** and **Walrus storage** without dealing with cryptography, key management, or complex blockchain logic.
 
-Key goals:
-- Make advanced encryption patterns accessible to everyday developers.
-- Provide simple APIs to encrypt, store, and decrypt data.
-- Integrate with Sui/Walrus while hiding low-level complexity.
+It is designed to feel familiar to everyday developers while still enabling advanced, secure data workflows.
 
-## Core concepts
+---
 
-- Walrus: verifiable, off-chain storage for blobs and files.
-- Seal: threshold-based encryption patterns that control who can decrypt data (AllowList, Private Data, Subscription, etc.).
-- SealClient / WalrusClient: high-level SDK clients that wrap Seal and Walrus functionality.
+## What WalrusDB Does
 
-## Features
+WalrusDB combines two powerful systems and exposes them as **simple, safe, developer-friendly functions**:
 
-- High-level encryption helpers:
-  - AllowList encryption (encrypt + store or return bytes)
-  - Private Data encryption (compute key ID from nonce, store on-chain or return bytes)
-  - Subscription encryption (service/subscription based access)
-- Store and fetch blobs from Walrus
-- CLI to scaffold clients and initialize keys
-- Minimal local helper implementations for development (mock/extendable)
+### **1. Walrus — Verifiable Blob Storage**
+Walrus provides off-chain, verifiable storage for blobs and files.  
+WalrusDB wraps this into clean functions to store, read, and delete encrypted blobs without requiring any storage configuration.
 
-## Install
+### **2. Seal — Encryption With Access Control**
+Seal enables advanced encryption patterns such as:
+- **AllowList** (encrypt for specific accounts)
+- **Private Data** (user-linked encryption with a nonce)
+- **Subscription-based** encryption (service/subscription access patterns)
+- **Time Lock** encryption
 
-Install the package (example with npm — adapt to your package setup):
+WalrusDB exposes these patterns through easy APIs so you can encrypt and decrypt data without manually constructing keys or dealing with low-level Seal logic.
 
-npm install walrusdb
+---
 
-Or during development, use the local client in this repo.
+## Why WalrusDB?
 
-## Quick start
+WalrusDB’s goal is to make modern, cryptographically secure data storage **accessible to all developers**:
 
-1. Create or obtain a KeyPair (the repo includes a KeyPair helper).
-2. Create a client and use the high level methods.
+- No need to handle raw keys or signatures  
+- No need to learn Sui transactions or object layouts  
+- No need to understand Seal internals  
+- No need to know how Walrus stores blobs  
 
-Minimal example (pseudo-code):
+You simply call high-level functions. WalrusDB takes care of signing, key setup, pattern selection, and connecting Seal + Walrus under the hood.
 
-import { KeyPair } from "walrusdb/src/core/keyPair";
-import { WalrusClient } from "walrusdb/example/walrus/client";
-import { SealClient } from "walrusdb/src/core/seal";
+---
 
-const keyPair = new KeyPair(); // or load an existing secret key
-const walrus = new WalrusClient(keyPair); // storage helper
-const seal = new SealClient();
-seal.network = "testnet"; // set network
-seal.keyPair = keyPair;
+## Key Capabilities
 
-// Encrypt and store with AllowList
-const { blobId, blobObject } = await seal.encryptWithPatternAllowListAndStoreOnWalrus({ message: "hello" }, "my-allowlist");
+- **High-level encryption helpers**
+  - AllowList encryption  
+  - Private Data encryption  
+  - Subscription encryption  
+  - With options to store the encrypted result or return encrypted bytes
 
-// Encrypt private data and store chain-side
-const keys = seal.createPrivateDataKeys("my-secret-nonce");
-const privateDataObjectId = await seal.encryptWithPatternPrivateDataAndStoreOnChain(keys, { secret: "value" });
+- **Blob storage**
+  - Upload encrypted blobs to Walrus  
+  - Fetch and automatically decrypt them  
+  - Delete stored blobs when needed
 
-// Fetch and decrypt
-const decrypted = await seal.decryptFromWalrusBlobId({ blobId }, "AllowList");
+- **Automatic key management**
+  - Generates, loads, and manages keypairs  
+  - Handles session signing  
+  - Computes key IDs and nonces safely
 
-This SDK handles signing, session keys, and the required transaction calls for you.
+- **Developer-first workflow**
+  - Simple APIs for all encryption tasks  
+  - Easy debugging with local helpers  
+  - Optional CLI for generating clients and managing keys
 
-## API Highlights
+---
 
-SealClient (high-level; main methods)
-- encryptWithPatternAllowListAndStoreOnWalrus(data, allowList?, tag?) → { blobId, blobObject }
-- encryptWithPatternAllowListAndReturnBytes(data, allowList?, tag?) → Uint8Array
-- createAllowListKey(name) → string
-- addAccountsToAllowList(accounts[], allowList?) → Record<string, boolean>
-- createPrivateDataKeys(nonce: string) → { keyId: Uint8Array, nonce: Uint8Array }
-- encryptWithPatternPrivateDataAndStoreOnChain(computedKeys, data) → privateDataObjectId
-- decryptFromPrivateDataObject(privateDataId?, nonce?) → parsed JSON
-- decryptFromWalrusBlobId({ blobId }, pattern, keyId?, name?) → parsed JSON
+## What You Can Build
 
-WalrusClient (generated client)
-- .user.create(data) → stores a blob
-- .user.findById({ blobId }) → fetches blob and returns JSON
-- .user.delete(deleteOptions) → deletes a blob
+WalrusDB makes it easy to integrate secure data flows into any application:
 
-Runtime helpers
-- storeBlob / fetchBlob / deleteBlob — wrap the Walrus SDK and implement a dev-friendly fallback that writes metadata locally.
+- Secure note or file storage  
+- Encrypted messages or private user data  
+- Role- or account-restricted content  
+- Subscription-locked assets  
+- Multi-user apps requiring safe data sharing  
 
-## CLI
+All without needing to understand low-level cryptography, blockchain objects, or Seal patterns.
 
-This project includes a CLI at client/src/cli with commands:
-- walrusdb generate — parse schema.walrus → generate client
-- walrusdb initialize --alias <name> — create and store a key alias
-- walrusdb use <alias> — set active alias
-- walrusdb active-key — print active key
-- walrusdb keys — list known keys
+---
 
-Usage example:
-npx walrusdb generate
-npx walrusdb initialize --alias dev
-npx walrusdb use dev
+## Summary
 
-## Development notes
+WalrusDB is a **bridge** between advanced secure storage technologies (Seal + Walrus) and everyday application developers.  
+It hides the complexity and gives you **clear, simple, high-level functions** to protect data, control access, and store encrypted content.
 
-- Replace or extend the simple local Walrus client in src/runtime/walrus-client.ts with production endpoints or SDK configuration.
-- The Seal client initialization assumes server object IDs and a PACKAGE_ID constant — configure these as required for your deployment.
-- Many functions return raw Uint8Array bytes; the SDK converts them to/from JSON when returning application data.
-
-## Troubleshooting
-
-- "No access to decryption keys": ensure the signer/key used has the required allowlist or private-data capability and that the session key was properly signed.
-- Blob upload issues: check network settings and Walrus upload-relay config. The local helper retries on known retryable errors.
-
-## Contributing
-
-- Open issues for bugs or feature requests.
-- Send PRs with tests and concise descriptions.
-- Keep changes minimal and document API updates in this README.
-
-## License
-
-MIT
+If you want modern, decentralized, verifiable, encrypted storage without the headaches — WalrusDB is built for you.

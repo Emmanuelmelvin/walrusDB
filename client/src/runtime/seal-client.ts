@@ -6,7 +6,7 @@ import { WalrusActiveNetwork, SealPatterns, SubscriptionOptions } from "../@type
 import { Transaction } from "@mysten/sui/transactions";
 import { PACKAGE_ID } from "../constants/move";
 import { Key } from "../core/keyPair";
-import { WalrusError } from "../cli/utils/error";
+import { WalrusDBConfigError, WalrusDBNoAccessError, WalrusDBSealError, WalrusDBTransactionError } from "../cli/utils/error";
 import { fromHex, toHex } from "@mysten/bcs";
 import { getAllowListObjectId } from "./allowlist/cap";
 import { getPrivateDataObject } from "./privateData/get";
@@ -63,12 +63,12 @@ export async function encrypt(
         break;
       case "Private Data":
         if (!tag || typeof tag === "string") {
-          throw new WalrusError("Invalid nonce")
+          throw new WalrusDBConfigError("Invalid nonce")
         }
         id = toHex(tag)
         break;
       default:
-        throw new WalrusError("Invalid Seal Option");
+        throw new WalrusDBSealError("Invalid Seal Option");
     }
   }
 
@@ -138,13 +138,13 @@ export async function decrypt(
     switch (pattern) {
       case "AllowList":
         if(typeof  name != "string"){
-          throw new WalrusError("Name must be a string for pattern AllowList");
+          throw new WalrusDBConfigError("Name must be a string for pattern AllowList");
         }
         keyId = await getAllowListObjectId(suiClient, Ed25519Keypair.fromSecretKey(key.secret), name);
         break;
       case "Private Data":
         if (!name || typeof name == "string") {
-          throw new WalrusError("Attach nonce used to create Private Data in the name parameter")
+          throw new WalrusDBConfigError("Attach nonce used to create Private Data in the name parameter")
         }
         const data = await getPrivateDataObject(suiClient, Ed25519Keypair.fromSecretKey(key.secret), name);
         keyId = data?.id
@@ -178,7 +178,7 @@ export async function decrypt(
         })
 
       }catch(error: any){
-        throw new WalrusError("Unable to build transaction block", error)
+        throw new WalrusDBTransactionError("Unable to build transaction block", error)
       }
       break;
     default:
@@ -191,7 +191,7 @@ export async function decrypt(
     await client.fetchKeys({ ids: [id], txBytes, sessionKey, threshold: 2 });
   } catch (err: any) {
     const errorMsg = err instanceof NoAccessError ? "No access to decryption keys" : "Unable to decrypt files, try again";
-    throw new WalrusError(errorMsg, err);
+    throw new WalrusDBNoAccessError(errorMsg, err);
   }
 
   const decryptedBytes = await client.decrypt({

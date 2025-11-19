@@ -1,6 +1,6 @@
 import fs from "fs";
 import { SCHEMA_JSON_PATH } from "../core/config";
-import { WalrusError } from "../cli/utils/error";
+import { WalrusDBConfigError, WalrusDBValidationError } from "../cli/utils/error";
 
 /**
  * Runtime schema validator for Walrus models.
@@ -24,13 +24,13 @@ let cachedSchema: Record<string, Record<string, any>> | null = null;
  * If the schema has been previously loaded, it returns the cached copy.
  *
  * @returns {Record<string, Record<string, any>>} The parsed schema object containing model definitions.
- * @throws {WalrusError} If the schema file cannot be found or parsed.
+ * @throws {WalrusDBValidationError} If the schema file cannot be found or parsed.
  */
 function loadSchema(): Record<string, Record<string, any>> {
   if (cachedSchema) return cachedSchema;
 
   if (!fs.existsSync(SCHEMA_JSON_PATH)) {
-    throw new WalrusError(
+    throw new WalrusDBConfigError(
       `Schema JSON not found at ${SCHEMA_JSON_PATH}. Run "walrus generate" first.`
     );
   }
@@ -39,7 +39,7 @@ function loadSchema(): Record<string, Record<string, any>> {
     const raw = fs.readFileSync(SCHEMA_JSON_PATH, "utf8");
     cachedSchema = JSON.parse(raw);
   } catch (err: any) {
-    throw new WalrusError(`Failed to parse schema.json: ${err.message}`);
+    throw new WalrusDBConfigError(`Failed to parse schema.json: ${err.message}`);
   }
 
   return cachedSchema as Record<string, Record<string, any>>;
@@ -80,7 +80,7 @@ export function validateAgainstSchema(modelName: string, data: Record<string, an
   const modelSchema = schema.models?.[modelName];
 
   if (!modelSchema) {
-    throw new WalrusError(`Unknown model: ${modelName}`);
+    throw new WalrusDBValidationError(`Unknown model: ${modelName}`);
   }
 
   for (const field of Object.keys(modelSchema)) {
@@ -95,7 +95,7 @@ export function validateAgainstSchema(modelName: string, data: Record<string, an
       expectedType = (fieldDef.type ?? "").toLowerCase();
       optional = !!fieldDef.optional;
     } else {
-      throw new WalrusError(
+      throw new WalrusDBValidationError(
         `Invalid schema format for field "${field}" in model "${modelName}".`
       );
     }
@@ -105,7 +105,7 @@ export function validateAgainstSchema(modelName: string, data: Record<string, an
     // Field missing
     if (value === undefined || value === null) {
       if (!optional) {
-        throw new WalrusError(
+        throw new WalrusDBValidationError(
           `Missing required field "${field}" for model "${modelName}".`
         );
       }
@@ -117,7 +117,7 @@ export function validateAgainstSchema(modelName: string, data: Record<string, an
       case "string":
       case "text":
         if (typeof value !== "string") {
-          throw new WalrusError(`Field "${field}" must be a string (got ${typeof value}).`);
+          throw new WalrusDBValidationError(`Field "${field}" must be a string (got ${typeof value}).`);
         }
         break;
 
@@ -125,21 +125,21 @@ export function validateAgainstSchema(modelName: string, data: Record<string, an
       case "int":
       case "float":
         if (typeof value !== "number") {
-          throw new WalrusError(`Field "${field}" must be a number (got ${typeof value}).`);
+          throw new WalrusDBValidationError(`Field "${field}" must be a number (got ${typeof value}).`);
         }
         break;
 
       case "boolean":
       case "bool":
         if (typeof value !== "boolean") {
-          throw new WalrusError(`Field "${field}" must be a boolean (got ${typeof value}).`);
+          throw new WalrusDBValidationError(`Field "${field}" must be a boolean (got ${typeof value}).`);
         }
         break;
 
       case "date":
       case "datetime":
         if (typeof value !== "string" || isNaN(Date.parse(value))) {
-          throw new WalrusError(`Field "${field}" must be an ISO date string (got ${value}).`);
+          throw new WalrusDBValidationError(`Field "${field}" must be an ISO date string (got ${value}).`);
         }
         break;
 

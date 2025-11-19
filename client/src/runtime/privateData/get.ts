@@ -1,5 +1,5 @@
 import { PrivateData, WalrusActiveNetwork } from "../../@types/param";
-import { WalrusError } from "../../cli/utils/error";
+import { WalrusDBConfigError, WalrusDBNoAccessError, WalrusDBNotFoundError } from "../../cli/utils/error";
 import { PACKAGE_ID } from "../../constants/move";
 import { getFullnodeUrl, SuiClient } from "@mysten/sui/client";
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
@@ -17,7 +17,7 @@ export  async function getPrivateDataObject(client: SuiClient, signer: Ed25519Ke
     })).data?.content as any)?.fields as PrivateData;
 
     if (privateData.creator !== signer.getPublicKey().toSuiAddress()) {
-      throw new WalrusError("Provided private data object id is not owned by this user.")
+      throw new WalrusDBNoAccessError("Provided private data object id is not owned by this user.")
     }
 
     return { id: privateData.id.id, data: Uint8Array.from(privateData.data) }
@@ -40,14 +40,14 @@ export  async function getPrivateDataObject(client: SuiClient, signer: Ed25519Ke
   }
 
   if (objects.length === 0) {
-    throw new WalrusError("No Private Data found for user account!");
+    throw new WalrusDBNotFoundError("No Private Data found for user account!");
   }
   return { id: privateDataObject?.id.id as string, data: Uint8Array.from((privateDataObject as PrivateData).data)}
 }
 
 export async function getPrivateDataObjectData(network: WalrusActiveNetwork["network"], key: Key, nonce?: Uint8Array, keyId?: string) {
   if (!nonce && !keyId) {
-    throw new WalrusError("Nonce or Private data object is is required")
+    throw new WalrusDBConfigError("Nonce or Private data object is is required")
   }
   const client = new SuiClient({ url: getFullnodeUrl(network) });
   const signer = Ed25519Keypair.fromSecretKey(key.secret);

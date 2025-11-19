@@ -4,7 +4,11 @@ import { Command } from "commander";
 import { generateCommand } from "./commands/generate";
 import { initializeWalrusDBClientKeyAndSecret } from "./commands/initialize-walrusdb";
 import { info, error } from "./utils/log";
-import { getActiveAlias, getAllKeysByTheirAliases, getKeyFromAlias, setActiveAlias } from "./utils/keys.config";
+import { 
+  getActiveAlias, 
+  getAllKeysByTheirAliases, 
+  getKeyFromAlias, 
+  setActiveAlias } from "./utils/keys.config";
 
 const program = new Command();
 
@@ -81,5 +85,4 @@ program
       });
     })
   );
-
 program.parse(process.argv);
