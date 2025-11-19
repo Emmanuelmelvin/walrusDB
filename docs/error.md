@@ -115,7 +115,7 @@ throw new WalrusDBConfigError("Missing WALRUS_SECRET environment variable");
 
 ```ts
 try {
-  // Some WalrusDB operation
+  // Some operation
 } catch (err) {
   if (err instanceof WalrusDBError) {
     console.error("WalrusDB error:", err.message, err.metadata);
@@ -128,10 +128,3 @@ try {
 ---
 
 This error hierarchy helps you **identify, categorize, and handle errors** effectively in your WalrusDB integrations.
-
-```
-
-If you want, I can also create a **“Quick Reference Table” version** showing **all error types, when they occur, and example messages**—perfect for SDK docs.  
-
-Do you want me to do that?
-```
