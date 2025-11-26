@@ -1,44 +1,69 @@
-import { SessionKey } from "@mysten/seal";
-import { 
-  decrypt, 
-  encrypt 
-} from "../runtime/seal-client";
-import { 
-  fetchBlob, 
-  storeBlob, 
-} from "../runtime/walrus-client";
-import { KeyPair } from "./keyPair";
-import { 
-  ReadOptions, 
-  WalrusClientFields, 
-  AllowlistCap, 
-  SealPatterns, 
-  SubscriptionOptions, 
-  CreateServiceOptions, 
-  GetServiceKeyOption, 
-  Service,
-  CreateSubscriptionOptions 
-} from "../@types/param";
-import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 import { WalrusDBSealError } from "../cli/utils/error";
 import { KeyPairsBuffer } from "../@types/return";
-import { helperCreateAllowList } from "../runtime/allowlist/create";
-import { getAllowListByName } from "../runtime/allowlist/cap";
-import { accountToAllowList as allow } from "../runtime/allowlist/membership";
-import { computeKeyId } from "../runtime/privateData/create";
-import { storeByteInPrivateDataObject } from "../runtime/privateData/store";
-import { getPrivateDataObjectData } from "../runtime/privateData/get";
-import { create as createServiceKey, createSubscriptionForService } from "../runtime/subscription/create";
-import { getServiceObjectFromNameHelper, getSubscriptionForService } from "../runtime/subscription/get";
+import { SealClientCore } from "../runtime/seal/seal-client";
+import { AllowList } from "../runtime/patterns/allowList";
+import { PrivateData } from "../runtime/patterns/privateData";
+import { Subscripion } from "../runtime/patterns/subscription";
+import { TimeLock } from "../runtime/patterns/timeLock";
+import { WalrusCore } from "../runtime/walrus-client";
+import { ReadBlobOptions, WalrusClient } from "@mysten/walrus";
+import { Allowlist, SubscriptionOptions } from "../@types/param";
 
 /**
  * SealClient manages encryptions(allowlist, private data, suscription and time lock), and blob storage on Walrus.
  *
  */
-export class SealClient implements WalrusClientFields {
-  network!: "testnet" | "devnet" | "mainnet";
-  keyPair!: KeyPair;
-  sessionKey!: SessionKey;
+export class SealClient extends SealClientCore {
+  private $walrus = class SealClient extends WalrusCore {
+    $initWal(
+      keyPair: import("@mysten/sui/keypairs/ed25519").Ed25519Keypair,
+      suiJsonRpcClient: import("@mysten/sui/experimental").ClientWithExtensions<{ walrus: WalrusClient; }, import("@mysten/sui/jsonRpc").SuiJsonRpcClient>
+    ): WalrusCore {
+      this.suiJsonRpcClient = suiJsonRpcClient;
+      this.keyPair = keyPair;
+      return this;
+    }
+    async $storeBlob(data: any, url: string): Promise<{ blobId: string; blobObject: object; }> {
+      return (this.storeBlob(data, url))
+    }
+    async $fetchBlob(blob: ReadBlobOptions): Promise<Uint8Array<ArrayBufferLike>> {
+      return (this.fetchBlob(blob))
+    }
+  }
+  private walrus = new (this.$walrus)
+  sessionKey!: import("@mysten/seal").SessionKey;
+  /**
+ * Loads and injects configuration into all pattern modules.
+ *
+ * This method performs centralized dependency injection for:
+ *  - WalrusCore (via `$initWal`)
+ *  - AllowList pattern
+ *  - PrivateData pattern
+ *  - Subscription pattern
+ *  - TimeLock pattern
+ *
+ * Each pattern receives:
+ *  - `keyPair`      → for signing Sui transactions
+ *  - `suiClient`    → connection to the Sui fullnode
+ *  - `sealClient`   → encrypted blob sealing + unsealing
+ *
+ * This ensures every pattern module shares the same cryptographic keys
+ * and network clients, keeping state consistent across all operations.
+ */
+  loadConfig() {
+    this.walrus.$initWal(this.keyPair, this.suiJsonRpcClient);
+    this.allowListPattern.$initAllow(this.keyPair, this.suiClient, this.sealClient)
+    this.privateDataPattern.$initPrivate(this.keyPair, this.suiClient, this.sealClient);
+    this.subscriptionPattern.$initSubscription(this.keyPair, this.suiClient, this.sealClient);
+    this.timeLockPattern.$initTimeLock(this.keyPair, this.suiClient, this.sealClient);
+  }
+  constructor(options?: import("../@types/schema").CreateSealClient) {
+    super(AllowList.create(), PrivateData.create(), Subscripion.create(), TimeLock.create())
+    if (options) {
+      this.$init(options.key, options.network)
+      this.loadConfig();
+    }
+  }
 
   // --------------------------
   // Private helpers (single-responsibility)
@@ -49,29 +74,19 @@ export class SealClient implements WalrusClientFields {
    * If `options` is not present this returns `options` as undefined and `payload` as original minus options.
    * @param data Any object that may include an `options` field.
    */
-  private _extract<T>(data: T): { options?: any; payload: any } {
+  private _extract<T>(data: T): { options?: import("../@types/param").CreateOptions; payload: any } {
     const { options, ...payload } = (data as any) ?? {};
     return { options, payload };
   }
 
-  /**
-   * Wrapper around the core `encrypt` call to centralize arguments and session handling.
-   * Returns whatever `encrypt` returns (commonly { encryptedBytes, ... }).
-   * @param pattern Seal pattern string (AllowList | "Private Data" | etc.)
-   * @param payload The data payload to encrypt (plain JS object)
-   * @param extraArgs Additional args forwarded to encrypt (tag, allowList, keyId, etc.)
-   */
-  private async _encrypt(pattern: SealPatterns, payload: any, ...extraArgs: any[]) {
-    return encrypt(this.network, this.keyPair.getKey(), payload, pattern, ...extraArgs);
-  }
 
   /**
    * Wrapper around the core `decrypt` call. Updates this.sessionKey with returned sessionKey.
    * Returns the raw decrypted bytes (Uint8Array) and sessionKey in object shape identical to decrypt.
    * Note: callers normally transform bytes to JSON.
    */
-  private async _decrypt(pattern: SealPatterns, buffer: Uint8Array, ...extraArgs: any[]) {
-    const result = await decrypt(pattern, this.network, buffer, this.keyPair.getKey(), this.sessionKey, ...extraArgs);
+  private async _decrypt(pattern: import("../@types/param").SealPatterns, buffer: Uint8Array, keyId: string | SubscriptionOptions) {
+    const result = await this.decrypt(pattern, buffer, this.sessionKey, keyId);
     // keep session key in sync with prior behavior
     if (result?.sessionKey) this.sessionKey = result.sessionKey;
     return result;
@@ -82,7 +97,7 @@ export class SealClient implements WalrusClientFields {
    * Returns whatever storeBlob returns (commonly { blobId, blobObject }).
    */
   private async _storeBlob(data: any) {
-    return storeBlob(data, "", this.network, this.keyPair.getKey());
+    return this.walrus.$storeBlob(data, "");
   }
 
   /**
@@ -112,11 +127,10 @@ export class SealClient implements WalrusClientFields {
    */
   async encryptWithPatternAllowListAndStoreOnWalrus<T>(
     data: T,
-    allowList?: string,
-    tag?: string
+    keyId: string,
   ): Promise<{ blobId: string; blobObject: Object }> {
     const { options, payload } = this._extract(data);
-    const { encryptedBytes } = await this._encrypt("AllowList", payload, tag, allowList);
+    const { encryptedBytes } = await this.encrypt(payload, keyId);
     const dataToStore = { encryptedBytes, options };
     const { blobId, blobObject } = await this._storeBlob(dataToStore);
     return { blobId, blobObject };
@@ -131,11 +145,10 @@ export class SealClient implements WalrusClientFields {
    */
   async encryptWithPatternAllowListAndReturnBytes<T>(
     data: T,
-    allowList?: string,
-    tag?: string
+    keyId: string,
   ): Promise<Uint8Array> {
     const { payload } = this._extract(data);
-    const { encryptedBytes } = await this._encrypt("AllowList", payload, tag, allowList);
+    const { encryptedBytes } = await this.encrypt(payload, keyId);
     return encryptedBytes;
   }
 
@@ -144,8 +157,8 @@ export class SealClient implements WalrusClientFields {
    * @param name Name of the allowlist.
    * @returns The allowlist object ID (shared object).
    */
-  async createAllowListKey(name: string): Promise<string> {
-    return helperCreateAllowList(this.network, this.keyPair.getKey(), name);
+  async createAllowListKey(name: string): Promise<string | undefined> {
+    return await this.allowListPattern.createAllowList(name);
   }
 
   /**
@@ -153,8 +166,8 @@ export class SealClient implements WalrusClientFields {
    * @param name Name of the allowlist.
    * @returns Object containing capability and allowlist or null.
    */
-  async getAllowListKeyObject(name: string): Promise<{ cap: AllowlistCap; allowList: any } | null> {
-    return getAllowListByName(this.network, this.keyPair.getKey(), name);
+  async getAllowListKeyObject(name: string): Promise<{ cap: import("../@types/param").AllowlistCap; allowList: Allowlist } | null> {
+    return this.allowListPattern.getAllowListByName(name);
   }
 
   /**
@@ -165,7 +178,7 @@ export class SealClient implements WalrusClientFields {
    */
   async addAccountsToAllowList(
     accounts: string[],
-    allowList?: string
+    allowList: string
   ): Promise<Record<string, boolean>> {
     return this.modifyAllowListAccounts(accounts, "add", allowList);
   }
@@ -178,7 +191,7 @@ export class SealClient implements WalrusClientFields {
    */
   async removeAccountFromAllowList(
     accounts: string[],
-    allowList?: string
+    allowList: string
   ): Promise<Record<string, boolean>> {
     return this.modifyAllowListAccounts(accounts, "remove", allowList);
   }
@@ -187,12 +200,12 @@ export class SealClient implements WalrusClientFields {
    * Internal helper to add/remove accounts from an allowlist to remove repetition.
    * Preserves behavior of original methods by calling the `allow` runtime function.
    */
-  private async modifyAllowListAccounts(accounts: string[], action: "add" | "remove", allowList?: string) {
+  private async modifyAllowListAccounts(accounts: string[], action: "add" | "remove", allowList: string) {
     const response: Record<string, boolean> = {};
     for (const account of accounts) {
       try {
         // The original code awaited allow(...) and stored the returned "status" as-is.
-        const status: any = await allow(this.network, account, this.keyPair.getKey(), action, allowList);
+        const status: any = await this.allowListPattern.mutateAllowList(action, allowList, account);
         response[account] = status;
       } catch {
         response[account] = false;
@@ -208,7 +221,7 @@ export class SealClient implements WalrusClientFields {
   createPrivateDataKeys(
     nonce: string
   ): { keyId: Uint8Array, nonce: Uint8Array } {
-    return computeKeyId(nonce, Ed25519Keypair.fromSecretKey(this.keyPair.getKey().secret));
+    return this.privateDataPattern.computeKeyId(nonce);
   }
 
   /**
@@ -219,8 +232,8 @@ export class SealClient implements WalrusClientFields {
    */
   async encryptWithPatternPrivateDataAndStoreOnChain<T>(computedKeys: KeyPairsBuffer, data: T) {
     const { payload } = this._extract(data);
-    const { encryptedBytes } = await this._encrypt("Private Data", payload, undefined, computedKeys.keyId);
-    return (await storeByteInPrivateDataObject(this.network, this.keyPair.getKey(), encryptedBytes, computedKeys.nonce));
+    const { encryptedBytes } = await this.encrypt(payload, computedKeys.keyId);
+    return (await this.privateDataPattern.storeBytesInPrivateDataObject(encryptedBytes, computedKeys.nonce));
   }
 
   /**
@@ -232,10 +245,10 @@ export class SealClient implements WalrusClientFields {
    */
   async encryptWithPatternPriateDataAndReturnbytes<T>(computedKeys: KeyPairsBuffer, data: T) {
     const { payload } = this._extract(data);
-    const { encryptedBytes } = await this._encrypt("Private Data", payload, undefined, computedKeys.keyId);
+    const { encryptedBytes } = await this.encrypt(payload, computedKeys.keyId);
 
     // Preserve original side-effect: store empty bytes (odd but kept to avoid changing behavior)
-    await storeByteInPrivateDataObject(this.network, this.keyPair.getKey(), Uint8Array.from([]), computedKeys.nonce);
+    await this.privateDataPattern.storeBytesInPrivateDataObject(Uint8Array.from([]), computedKeys.nonce);
 
     return encryptedBytes;
   }
@@ -248,7 +261,7 @@ export class SealClient implements WalrusClientFields {
    */
   async encryptWithPatternPrivateDataAndStoreOnWalrus<T>(computedKeys: KeyPairsBuffer, data: T) {
     const { options, payload } = this._extract(data);
-    const { encryptedBytes } = await this._encrypt("Private Data", payload, undefined, computedKeys.keyId);
+    const { encryptedBytes } = await this.encrypt(payload, computedKeys.keyId);
     const dataToUpload = { encryptedBytes, options };
     return (await this._storeBlob(dataToUpload));
   }
@@ -257,8 +270,8 @@ export class SealClient implements WalrusClientFields {
    * @param { CreateServiceOptions }options Options to create a service for others to suscribe
    * @returns Service Object ID
    */
-  async createServiceKey(options: CreateServiceOptions): Promise<string | undefined> {
-    return (await createServiceKey(options, this.network, this.keyPair.getKey()))
+  async createServiceKey(options: import("../@types/param").CreateServiceOptions): Promise<string | undefined> {
+    return (await this.subscriptionPattern.createSubscriptionSerice(options))
   }
 
   /**
@@ -267,8 +280,8 @@ export class SealClient implements WalrusClientFields {
    * @description Helper function to get Service Object ID from name
    * @returns The Service object ID if  it exists. If not, returns null
    */
-  async getServiceKeyFromName(name: GetServiceKeyOption): Promise<Service | null> {
-    return (await getServiceObjectFromNameHelper(this.network, this.keyPair.getKey(), name.name))
+  async getServiceKeyFromName(name: import("../@types/param").GetServiceKeyOption): Promise<import("../@types/param").Service | null> {
+    return (await this.subscriptionPattern.getServiceObjectFromName(name.name))
   }
 
   /**
@@ -276,8 +289,8 @@ export class SealClient implements WalrusClientFields {
    * @param subscription 
    * @returns Returns suscription object ID
    */
-  async createSubscription(subscription: CreateSubscriptionOptions){
-    return (await createSubscriptionForService(subscription, this.network, this.keyPair.getKey()))
+  async createSubscription(options: import("../@types/param").CreateSubscriptionOptions) {
+    return (await this.subscriptionPattern.createSubscriptionForService(options))
   }
 
   /**
@@ -285,9 +298,20 @@ export class SealClient implements WalrusClientFields {
    * @param serviceId 
    * @returns Returns subscription for a given service if found
    */
-  async getSubcriptionForService(serviceId: string){
-    return (await getSubscriptionForService(serviceId, this.network, this.keyPair.getKey()))
+  async getSubcriptionForService(serviceId: string) {
+    return (await this.subscriptionPattern.getSubscriptionForService(serviceId))
   }
+
+  /**
+   * 
+   * @param options 
+   * @returns True is transfer is successful
+   */
+  async transferSubscription(options: import("../@types/param").TransferSubscriptionOptions): Promise<boolean> {
+    return (await this.subscriptionPattern.transferSubscription(options))
+  }
+
+
 
   /**
    * 
@@ -297,20 +321,45 @@ export class SealClient implements WalrusClientFields {
    */
   async encryptWithPatternSubscriptionAndStoreOnWalrus<T>(keyId: string, data: T) {
     const { payload } = this._extract(data);
-    const { encryptedBytes } = await this._encrypt("Subscription", payload, undefined, keyId);
+    const { encryptedBytes } = await this.encrypt(payload, keyId);
     return (await this._storeBlob(encryptedBytes));
   }
-    /**
-   * 
-   * @param keyId Service ID used to encrypt data
-   * @param data Data to be encrypted for subscription access only
-   * @returns Returns encrypted bytes
-   */
+  /**
+ * 
+ * @param keyId Service ID used to encrypt data
+ * @param data Data to be encrypted for subscription access only
+ * @returns Returns encrypted bytes
+ */
   async encryptWithPatternSubscriptionAndReturnytes<T>(keyId: string, data: T) {
     const { payload } = this._extract(data);
-    const { encryptedBytes } = await this._encrypt("Subscription", payload, undefined, keyId);
+    const { encryptedBytes } = await this.encrypt(payload, keyId);
     return encryptedBytes;
   }
+
+  async createTimeLockEncryptionKey(options: import("../@types/param").CreateTimeLockOptions) {
+    return (await this.timeLockPattern.createTimeLockEncryption(options));
+  }
+
+  async getTimeLockEncryptionKey(name: string) {
+    return (await this.timeLockPattern.getTimeLockEncryptionObjectForName(name))
+  }
+
+  async updateTimeLockEncryptionEndTime(options: import("../@types/param").UpdateTimeLockOption) {
+    return (await this.timeLockPattern.updateTleEndTime(options))
+  }
+
+  async encryptWithPatternTimeLockEncryptionAndStoreOnWalrus<T>(keyId: string, data: T) {
+    const { payload } = this._extract(data);
+    const { encryptedBytes } = await this.encrypt(payload, keyId);
+    return (await this._storeBlob(encryptedBytes));
+  }
+
+  async encryptWithPatternTimeLockEncryptionAndReturnBytes<T>(keyId: string, data: T) {
+    const { payload } = this._extract(data);
+    const { encryptedBytes } = await this.encrypt(payload, keyId);
+    return encryptedBytes;
+  }
+
 
   /**
    * @async
@@ -320,12 +369,12 @@ export class SealClient implements WalrusClientFields {
    * @returns Returns the encrypted data in parsed JSON format
    */
   async decryptFromPrivateDataObject<T>(privateDataId?: string, nonce?: Uint8Array): Promise<T> {
-    const data = await getPrivateDataObjectData(this.network, this.keyPair.getKey(), nonce, privateDataId);
+    const data = await this.privateDataPattern.getPrivateDataObject(nonce, privateDataId);
     if (!(data?.data)) {
       throw new WalrusDBSealError("Unable to read bytes from PrivateData object");
     }
 
-    const { decryptedBytes } = await this._decrypt("Private Data", data?.data, privateDataId, nonce);
+    const { decryptedBytes } = await this._decrypt("Private Data", data?.data, data.id);
     const decodedJson = new TextDecoder().decode(decryptedBytes);
     return JSON.parse(decodedJson) as T;
   }
@@ -337,9 +386,8 @@ export class SealClient implements WalrusClientFields {
    * @param keyId Optional key id that was used to encrypt the data,
    * @returns Decrypted bytes as parsed JSON object.
    */
-  async decryptFromBuffer<T>(buffer: Uint8Array, pattern: SealPatterns, keyId?: string | SubscriptionOptions, name?: string | Uint8Array): Promise<T> {
-    const { decryptedBytes, sessionKey } = await this._decrypt(pattern, buffer, keyId, name);
-    this.sessionKey = sessionKey;
+  async decryptFromBuffer<T>(buffer: Uint8Array, pattern: import("../@types/param").SealPatterns, keyId: string | import("../@types/param").SubscriptionOptions): Promise<T> {
+    const { decryptedBytes } = await this._decrypt(pattern, buffer, keyId as string);
     const decodedJson = new TextDecoder().decode(decryptedBytes);
     return JSON.parse(decodedJson) as T;
   }
@@ -352,15 +400,12 @@ export class SealClient implements WalrusClientFields {
    * @param name Optional name to get key id
    * @returns Decrypted JSON data.
    */
-  async decryptFromWalrusBlobId<T>(blobId: ReadOptions, pattern: SealPatterns, keyId?: string | SubscriptionOptions, name?: string | Uint8Array): Promise<T> {
-    const blobFromWalrus = await fetchBlob({ blobId: blobId.blobId }, this.network);
+  async decryptFromWalrusBlobId<T>(blobId: import("../@types/param").ReadOptions, pattern: import("../@types/param").SealPatterns, keyId?: string | import("../@types/param").SubscriptionOptions): Promise<T> {
+    const blobFromWalrus = await this.walrus.$fetchBlob({ blobId: blobId.blobId });
     const parsed = JSON.parse(new TextDecoder().decode(blobFromWalrus));
     const buffer = this._objectToUint8Array(parsed)
-    const { decryptedBytes } = await this._decrypt(pattern, buffer, keyId, name);
+    const { decryptedBytes } = await this._decrypt(pattern, buffer, keyId as string);
     const decodedJson = new TextDecoder().decode(decryptedBytes);
     return JSON.parse(decodedJson) as T;
   }
-
-  // TODO
-  async encryptWithPatternTimeLockAndStoreOnWalrus<T>(tag: string, data: T) { }
 }

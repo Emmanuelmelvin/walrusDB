@@ -1,9 +1,5 @@
 import { DeleteBlobOptions, ReadBlobOptions } from "@mysten/walrus";
 
-export interface WalrusClientFields {
-  network: WalrusActiveNetwork["network"];
-}
-
 export interface WalrusActiveNetwork {
   network: 'testnet' | 'devnet' | "mainnet"
 }
@@ -21,7 +17,9 @@ export interface DeleteOptions extends DeleteBlobOptions{}
 
 export type SealPatterns = "Private Data" | "AllowList" | "Time-Lock" | "Secure Voting" | "Subscription";
 export interface Allowlist {
-    id: string;
+    id: {
+      id: string
+    }
     name: string;
     list: string[];
 }
@@ -89,3 +87,30 @@ export interface CreateSubscriptionOptions {
   fee: number,
   service: string,
 }
+
+export interface TransferSubscriptionOptions{
+  serviceId: string,
+  to: string
+}
+export interface CreateTimeLockOptions {
+  end_time: number,
+  name: string
+}
+export interface TimeLockData {
+  id: {
+    id: string
+  },
+  name: string,
+  end_time: number
+}
+export interface TimeLockDataCap {
+  id: {
+    id: string
+  },
+  updatable_tle_id: string
+}
+export interface UpdateTimeLockOption {
+  timeLockId: string,
+  end_time: number
+}
+export type MutateAllowList = "remove" | "add"

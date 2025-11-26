@@ -49,9 +49,10 @@ export async function saveConfig(config: WalrusConfig): Promise<void> {
  *
  * @returns {Promise<string | null>} Active alias or null if none set.
  */
-export async function getActiveAlias(): Promise<string | null> {
+export async function getActiveAlias(): Promise<string> {
   const config = await loadConfig();
-  return config.activeAlias || null;
+  if(!config.activeAlias) throw new WalrusDBConfigError("No active alias found")
+    return config.activeAlias;
 }
 
 /**

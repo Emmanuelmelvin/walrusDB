@@ -1,9 +1,19 @@
-import { getAllAliases, getSecretFromAlias as getSecret } from "../cli/utils/keys.config";
+import { getActiveAlias, getSecretFromAlias as getSecret } from "../cli/utils/keys.config";
 
-// Infer the literal union type from the array returned by getAllAliases
-type Alias = ReturnType<typeof getAllAliases>[number];
-
-export async function getSecretFromAlias(alias: Alias): Promise<string> {
+/**
+ * 
+ * @param alias Alias used in creating key/secret
+ * @returns The secret associated with the provided alias
+ */
+export async function getSecretFromAlias(alias: string): Promise<string> {
     const secret = await getSecret(alias);
     return secret;
+}
+
+/**
+ * @description Helper function to get secret created from cli
+ * @returns Secret for active key
+ */
+export async function getSecretFromActiveAlias(): Promise<string> {
+    return (await getActiveAlias())
 }

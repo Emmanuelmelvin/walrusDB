@@ -7,6 +7,6 @@
 * [Getting Started](getting-started.md)
 * [Common Error](error.md)
 * [Working with Schema](schema.md)
-* [Decryption](encryption.md)
+* [Decryption](decryption.md)
 * [Encryption](encryption.md)
 * [How WalrusDB aligns with the Data Privacy and Security Track](alignment.md)
