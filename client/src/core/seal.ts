@@ -7,7 +7,8 @@ import { Subscripion } from "../runtime/patterns/subscription";
 import { TimeLock } from "../runtime/patterns/timeLock";
 import { WalrusCore } from "../runtime/walrus-client";
 import { ReadBlobOptions, WalrusClient } from "@mysten/walrus";
-import { Allowlist, SubscriptionOptions } from "../@types/param";
+import { Allowlist, CreateSubscriptionOptions, CreateTimeLockOptions, GetServiceKeyOption, ReadOptions, SealPatterns, Service, SubscriptionOptions, TransferSubscriptionOptions } from "../@types/param";
+import { CreateSealClient } from "../@types/schema";
 
 /**
  * SealClient manages encryptions(allowlist, private data, suscription and time lock), and blob storage on Walrus.
@@ -57,7 +58,7 @@ export class SealClient extends SealClientCore {
     this.subscriptionPattern.$initSubscription(this.keyPair, this.suiClient, this.sealClient);
     this.timeLockPattern.$initTimeLock(this.keyPair, this.suiClient, this.sealClient);
   }
-  constructor(options?: import("../@types/schema").CreateSealClient) {
+  constructor(options?: CreateSealClient) {
     super(AllowList.create(), PrivateData.create(), Subscripion.create(), TimeLock.create())
     if (options) {
       this.$init(options.key, options.network)
@@ -280,7 +281,7 @@ export class SealClient extends SealClientCore {
    * @description Helper function to get Service Object ID from name
    * @returns The Service object ID if  it exists. If not, returns null
    */
-  async getServiceKeyFromName(name: import("../@types/param").GetServiceKeyOption): Promise<import("../@types/param").Service | null> {
+  async getServiceKeyFromName(name: GetServiceKeyOption): Promise<Service | null> {
     return (await this.subscriptionPattern.getServiceObjectFromName(name.name))
   }
 
@@ -289,7 +290,7 @@ export class SealClient extends SealClientCore {
    * @param subscription 
    * @returns Returns suscription object ID
    */
-  async createSubscription(options: import("../@types/param").CreateSubscriptionOptions) {
+  async createSubscription(options: CreateSubscriptionOptions): Promise<string | undefined> {
     return (await this.subscriptionPattern.createSubscriptionForService(options))
   }
 
@@ -307,7 +308,7 @@ export class SealClient extends SealClientCore {
    * @param options 
    * @returns True is transfer is successful
    */
-  async transferSubscription(options: import("../@types/param").TransferSubscriptionOptions): Promise<boolean> {
+  async transferSubscription(options: TransferSubscriptionOptions): Promise<boolean> {
     return (await this.subscriptionPattern.transferSubscription(options))
   }
 
@@ -336,7 +337,7 @@ export class SealClient extends SealClientCore {
     return encryptedBytes;
   }
 
-  async createTimeLockEncryptionKey(options: import("../@types/param").CreateTimeLockOptions) {
+  async createTimeLockEncryptionKey(options: CreateTimeLockOptions) {
     return (await this.timeLockPattern.createTimeLockEncryption(options));
   }
 
@@ -386,7 +387,7 @@ export class SealClient extends SealClientCore {
    * @param keyId Optional key id that was used to encrypt the data,
    * @returns Decrypted bytes as parsed JSON object.
    */
-  async decryptFromBuffer<T>(buffer: Uint8Array, pattern: import("../@types/param").SealPatterns, keyId: string | import("../@types/param").SubscriptionOptions): Promise<T> {
+  async decryptFromBuffer<T>(buffer: Uint8Array, pattern: SealPatterns, keyId: string | SubscriptionOptions): Promise<T> {
     const { decryptedBytes } = await this._decrypt(pattern, buffer, keyId as string);
     const decodedJson = new TextDecoder().decode(decryptedBytes);
     return JSON.parse(decodedJson) as T;
@@ -400,7 +401,7 @@ export class SealClient extends SealClientCore {
    * @param name Optional name to get key id
    * @returns Decrypted JSON data.
    */
-  async decryptFromWalrusBlobId<T>(blobId: import("../@types/param").ReadOptions, pattern: import("../@types/param").SealPatterns, keyId?: string | import("../@types/param").SubscriptionOptions): Promise<T> {
+  async decryptFromWalrusBlobId<T>(blobId: ReadOptions, pattern: SealPatterns, keyId: string | SubscriptionOptions): Promise<T> {
     const blobFromWalrus = await this.walrus.$fetchBlob({ blobId: blobId.blobId });
     const parsed = JSON.parse(new TextDecoder().decode(blobFromWalrus));
     const buffer = this._objectToUint8Array(parsed)
