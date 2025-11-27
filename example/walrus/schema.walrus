@@ -1,8 +1,11 @@
 generator walrus {
   url "https://storage.walrus.node.io"
 }
-
 model User {
   id String
   email String?
+}
+model ByteData {
+  name String
+  bytes String
 }

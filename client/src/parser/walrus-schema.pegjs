@@ -1,3 +1,8 @@
+// ========================
+// Walrus Schema PEG Grammar
+// ========================
+
+// Entry point
 Start
   = _ gen:Generator? _ models:Model+ _ {
       return {
@@ -6,6 +11,7 @@ Start
       };
     }
 
+// ========================
 // GENERATOR
 Generator
   = "generator" __ name:Identifier __ "{" _ url:GeneratorUrl _ "}" {
@@ -13,11 +19,10 @@ Generator
     }
 
 GeneratorUrl
-  = "url" __ value:StringLiteral {
-      return value;
-    }
+  = "url" __ value:StringLiteral _ { return value; }
 
-// MODEL
+// ========================
+// MODELS
 Model
   = "model" __ name:Identifier __ "{" _ fields:FieldList? _ "}" _ {
       return [name, Object.fromEntries(fields || [])];
@@ -33,31 +38,28 @@ Field
       return [name, type];
     }
 
+// ========================
 // TYPES (optional + arrays)
 TypeAttr
-  = base:Identifier array:"[]"?
-    optional:"?"? {
-
-      // base + array + optional → return structured info
-      if (array && optional) {
-        return { type: base, isArray: true, optional: true };
-      } else if (array) {
-        return { type: base, isArray: true };
-      } else if (optional) {
-        return { type: base, optional: true };
-      } else {
-        return base;
-      }
+  = base:Identifier array:"[]"? optional:"?"? {
+      return {
+        type: base,
+        ...(array ? { isArray: true } : {}),
+        ...(optional ? { optional: true } : {})
+      };
     }
 
-// STRING LITERAL
+// ========================
+// STRING LITERALS
 StringLiteral
   = '"' chars:([^"]*) '"' { return chars.join(""); }
 
-// IDENTIFIER
+// ========================
+// IDENTIFIERS
 Identifier
   = $([a-zA-Z_][a-zA-Z0-9_]*)
 
+// ========================
 // WHITESPACE
-_ = [ \t\r\n]*
-__ = [ \t\r\n]+
+_  = [ \t\r\n]*       // optional whitespace
+__ = [ \t\r\n]+       // required whitespace
