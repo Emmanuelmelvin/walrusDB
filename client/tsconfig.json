@@ -1,8 +1,6 @@
 {
   // Visit https://aka.ms/tsconfig to read more about this file
   "compilerOptions": {
-    // File Layout
-    "types": ["node"],
     "rootDir": "./src",
     "typeRoots": ["./node_modules/@types", "./src/@types"],
 
@@ -34,7 +32,6 @@
 
     // Recommended Options
     "strict": true,
-    "jsx": "react-jsx",
     // "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
